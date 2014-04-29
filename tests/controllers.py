@@ -53,3 +53,23 @@ def set_get_cookies():
         return cookie
     else:
         bottle.response.set_cookie('test_cookie', 'test')
+
+@bottle.route('/header')
+@bottle.post('/header')
+def header():
+    return bottle.request.get_header('Test-header', 'None')
+
+@bottle.route('/redirect_to_header')
+@bottle.post('/redirect_to_header')
+def redirect_to_header():
+    bottle.redirect('/header')
+
+@bottle.route('/redirect_to_useragent')
+@bottle.post('/redirect_to_useragent')
+def redirect_to_useragent():
+    bottle.redirect('/useragent')
+
+@bottle.route('/useragent')
+@bottle.post('/useragent')
+def header():
+    return bottle.request.get_header('User-agent', 'None')

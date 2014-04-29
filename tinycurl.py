@@ -9,12 +9,16 @@ from StringIO import StringIO
 from pprint import pprint
 from tinycurl_exceptions import DeadProxy, WrongCode, InfiniteRedirection
 
+#logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %H:%M:%S', level=logging.DEBUG)
+
 MAX_REDIRECTS = 2
 TIMEOUT = 1
 HAMMER_MODE_ATTEMPTS = 3
 PROXY_TYPE = 'socks5'
+HEADERS = []
+USERAGENT = ''
 
-def __headers_to_dict(headers):
+def __headers_to_dict(headers, replace_duplicates=False):
     """ 
     Получаем: ("Connection: Keep-Alive", )
     Отдаём: {"Connection": "Keep-Alive"}
@@ -28,7 +32,7 @@ def __headers_to_dict(headers):
         except ValueError as e:
             continue
 
-        if key in result.keys():
+        if key in result.keys() and replace_duplicates is False:
             result[key] += '\r\n' + value
         else:
             result[key] = value
@@ -112,7 +116,8 @@ def __get_cookies(set_cookie_string, current_cookies=''):
     return urllib.unquote(urllib.urlencode(cookies)) 
 
 def __request(url, request_type, cookies='', post_data={}, proxy=None, 
-              redirect_count=0, attempt=1):
+              headers=[], useragent='', referer='', redirect_count=0, 
+              attempt=1):
     """
     Универсальная функция. Используется в функциях get & post
     Возвращает: 
@@ -124,15 +129,33 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
         Redirect URL: string | none
         Redirect count: integer
     """
+
+    #сливаем переданые в функции и глобальные заголовки
+    headers += HEADERS
+    headers = __headers_to_dict(headers, replace_duplicates=True)
+    headers = ["%s: %s" % (k, v) for k, v in headers.items()]
+
     c = pycurl.Curl()
 
-    headers = StringIO()
+    got_headers = StringIO()
     body = StringIO()
 
     c.setopt(pycurl.URL, url)
     c.setopt(pycurl.TIMEOUT, TIMEOUT)
     c.setopt(pycurl.WRITEFUNCTION, body.write)
-    c.setopt(pycurl.HEADERFUNCTION, headers.write)
+    c.setopt(pycurl.HEADERFUNCTION, got_headers.write)
+
+    #более приоритетный юзер-агент - это переданый в функцию
+    #менее приоритетный - это юзер-агент установленный глобально
+    if not useragent:
+        if USERAGENT:
+            useragent = USERAGENT
+
+    if useragent:
+        c.setopt(pycurl.USERAGENT, useragent)
+
+    if headers:
+        c.setopt(pycurl.HTTPHEADER, headers)
 
     #Если код ответа >= 400, то вызываем ошибку
     c.setopt(pycurl.FAILONERROR, 1)
@@ -194,12 +217,14 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
             raise pycurl.error(str(err))
 
     #словарь
-    headers = __get_headers(headers.getvalue())
+    got_headers = __get_headers(got_headers.getvalue())
 
-    result = {'headers': headers, 
+    result = {'headers': got_headers, 
               'body': body.getvalue(),
               'current_proxy': proxy,
-              'cookies': __get_cookies(headers['Set-Cookie']),
+              'useragent': useragent,
+              'sent_headers': headers,
+              'cookies': __get_cookies(got_headers['Set-Cookie']),
               'connect_time': c.getinfo(pycurl.CONNECT_TIME),
               'response_code': c.getinfo(pycurl.RESPONSE_CODE),
               'current_url': c.getinfo(pycurl.EFFECTIVE_URL),
@@ -221,11 +246,14 @@ def __process_redirect(result):
         result['redirect_count'] += 1
         result = get(result['redirect_url'], result['cookies'], 
                      redirect_count=result['redirect_count'], 
-                     proxy=result['current_proxy'])
+                     proxy=result['current_proxy'],
+                     useragent=result['useragent'], 
+                     headers=result['sent_headers'])
 
     return result
 
-def get(url, cookies='', proxy=None, redirect_count=0):
+def get(url, cookies='', proxy=None, useragent='', headers=[], 
+        redirect_count=0):
     """
     GET запрос
     Возвращаемые значения: см. функцию __request
@@ -242,6 +270,8 @@ def get(url, cookies='', proxy=None, redirect_count=0):
             result = __process_redirect(__request(url, request_type='get', 
                                                   cookies=cookies, 
                                                   proxy=proxy,
+                                                  useragent=useragent,
+                                                  headers=headers,
                                                   redirect_count=redirect_count))
             return result
 
@@ -255,7 +285,7 @@ def get(url, cookies='', proxy=None, redirect_count=0):
             if err_counter >= HAMMER_MODE_ATTEMPTS:
                 raise pycurl.error(str(e))
 
-def post(url, data, cookies='', proxy=None):
+def post(url, data, cookies='', proxy=None, useragent='', headers=[]):
     """
     POST запрос
     data: dict
@@ -267,7 +297,10 @@ def post(url, data, cookies='', proxy=None):
     while True:
         try:
             result = __process_redirect(__request(url, request_type='post', 
-                                                  cookies=cookies, post_data=data,
+                                                  cookies=cookies, 
+                                                  post_data=data,
+                                                  useragent=useragent, 
+                                                  headers=headers,
                                                   proxy=proxy))
             return result
         except DeadProxy as e:

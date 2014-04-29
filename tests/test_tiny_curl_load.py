@@ -21,6 +21,8 @@ class TestLoadPages(unittest.TestCase):
 
     def tearDown(self):
         self.mock_curl.reset()
+        tinycurl.HEADERS = []
+        tinycurl.USERAGENT = ''
 
 
     def test_hammer_mode(self):
@@ -127,3 +129,106 @@ class TestLoadPages(unittest.TestCase):
 
         self.assertEqual('test', result)
 
+    def test_global_header(self):
+        """Устанавливаем глобальное значение хедеров"""
+        tinycurl.HEADERS = ['Test-header: test']
+        result = tinycurl.get('http://ttttest.lc/header')['body']
+
+        self.assertEqual('test', result)
+
+    def test_passed_header(self):
+        """Передаём значения хедеров"""
+        result = tinycurl.get('http://ttttest.lc/header',
+                              headers=['Test-header: test'])['body']
+        self.assertEqual('test', result)
+
+    def test_passed_header_with_redirect(self):
+        """Передаём значения хедеров, но нас редиректит"""
+        result = tinycurl.get('http://ttttest.lc/redirect_to_header', 
+                              headers=['Test-header: test'])['body']
+        self.assertEqual('test', result)
+
+    def test_global_header_with_redirect(self):
+        """Глобальное значение хедеров, но нас редиректит"""
+        tinycurl.HEADERS = ['Test-header: test']
+        result = tinycurl.get('http://ttttest.lc/redirect_to_header')['body']
+        self.assertEqual('test', result)
+
+    def test_passed_header_post(self):
+        """Передаём значения хедеров; POST запрос"""
+        result = tinycurl.post('http://ttttest.lc/header', data={'a': 'b'},
+                                headers=['Test-header: test'])['body']
+        self.assertEqual('test', result)
+
+    def test_passed_header_with_redirect_post(self):
+        """Передаём значения хедеров, но нас редиректит; POST запрос"""
+        result = tinycurl.post('http://ttttest.lc/redirect_to_header', 
+                               data={'a': 'b'},
+                               headers=['Test-header: test'])['body']
+        self.assertEqual('test', result)
+
+    def test_passed_header_with_redirect_post(self):
+        """Глобальное значение хедеров, но нас редиректит; POST запрос"""
+        tinycurl.HEADERS = ['Test-header: test']
+        result = tinycurl.post('http://ttttest.lc/redirect_to_header', 
+                               data={'a': 'b'})['body']
+        self.assertEqual('test', result)
+
+    def test_global_useragent(self):
+        """глобальное значение User-agent"""
+        tinycurl.USERAGENT = 'test-useragent'
+        result = tinycurl.get('http://ttttest.lc/useragent')['body']
+
+        self.assertEqual('test-useragent', result)
+
+    def test_passed_useragent(self):
+        """Переданое значение User-agent"""
+        result = tinycurl.get('http://ttttest.lc/useragent', useragent='test-useragent')['body']
+
+        self.assertEqual('test-useragent', result)
+
+    def test_global_useragent_post(self):
+        """глобальное значение User-agent; POST запрос"""
+        tinycurl.USERAGENT = 'test-useragent'
+        result = tinycurl.post('http://ttttest.lc/useragent',
+                               data={'a': 'b'})['body']
+
+        self.assertEqual('test-useragent', result)
+
+    def test_passed_useragent_post(self):
+        """Переданое значение User-agent; POST запрос"""
+        result = tinycurl.post('http://ttttest.lc/useragent',
+                               data={'a': 'b'},
+                               useragent='test-useragent')['body']
+
+        self.assertEqual('test-useragent', result)
+
+    def test_passed_useragent_with_redirect(self):
+        """Переданое значение User-agent; Редиректит"""
+        result = tinycurl.get('http://ttttest.lc/redirect_to_useragent', 
+                              useragent='test-useragent')['body']
+
+        self.assertEqual('test-useragent', result)
+
+    def test_global_useragent_with_redirect(self):
+        """Глобальное значение User-agent; Редиректит"""
+        tinycurl.USERAGENT = 'test-useragent'
+        result = tinycurl.get('http://ttttest.lc/redirect_to_useragent')['body']
+
+        self.assertEqual('test-useragent', result)
+
+    def test_passed_useragent_with_redirect_post(self):
+        """Переданое значение User-agent; Редиректит; POST запрос"""
+        result = tinycurl.post('http://ttttest.lc/redirect_to_useragent', 
+                               data={'a': 'b'},
+                               useragent='test-useragent')['body']
+
+        self.assertEqual('test-useragent', result)
+
+    def test_global_useragent_with_redirect_post(self):
+        """Глобальное значение User-agent; Редиректит; POST запрос"""
+        tinycurl.USERAGENT = 'test-useragent'
+        result = tinycurl.post('http://ttttest.lc/redirect_to_useragent', 
+                               data={'a': 'b'})['body']
+
+        self.assertEqual('test-useragent', result)
