@@ -131,9 +131,9 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     """
 
     #сливаем переданые в функции и глобальные заголовки
-    headers += HEADERS
-    headers = __headers_to_dict(headers, replace_duplicates=True)
-    headers = ["%s: %s" % (k, v) for k, v in headers.items()]
+    all_headers = HEADERS + headers
+    all_headers = __headers_to_dict(all_headers, replace_duplicates=True)
+    all_headers = ["%s: %s" % (k, v) for k, v in all_headers.items()]
 
     c = pycurl.Curl()
 
@@ -154,8 +154,13 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     if useragent:
         c.setopt(pycurl.USERAGENT, useragent)
 
-    if headers:
-        c.setopt(pycurl.HTTPHEADER, headers)
+    if all_headers:
+        c.setopt(pycurl.HTTPHEADER, all_headers)
+
+    #Установка referer'a
+    if referer:
+        c.setopt(pycurl.REFERER, referer)
+
 
     #Если код ответа >= 400, то вызываем ошибку
     c.setopt(pycurl.FAILONERROR, 1)
@@ -223,7 +228,8 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
               'body': body.getvalue(),
               'current_proxy': proxy,
               'useragent': useragent,
-              'sent_headers': headers,
+              'referer': referer,
+              'sent_headers': all_headers,
               'cookies': __get_cookies(got_headers['Set-Cookie']),
               'connect_time': c.getinfo(pycurl.CONNECT_TIME),
               'response_code': c.getinfo(pycurl.RESPONSE_CODE),
@@ -247,13 +253,14 @@ def __process_redirect(result):
         result = get(result['redirect_url'], result['cookies'], 
                      redirect_count=result['redirect_count'], 
                      proxy=result['current_proxy'],
+                     referer=result['referer'],
                      useragent=result['useragent'], 
                      headers=result['sent_headers'])
 
     return result
 
-def get(url, cookies='', proxy=None, useragent='', headers=[], 
-        redirect_count=0):
+def get(url, cookies='', proxy=None, useragent='', referer='',
+        headers=[], redirect_count=0):
     """
     GET запрос
     Возвращаемые значения: см. функцию __request
@@ -270,6 +277,7 @@ def get(url, cookies='', proxy=None, useragent='', headers=[],
             result = __process_redirect(__request(url, request_type='get', 
                                                   cookies=cookies, 
                                                   proxy=proxy,
+                                                  referer=referer,
                                                   useragent=useragent,
                                                   headers=headers,
                                                   redirect_count=redirect_count))
@@ -285,7 +293,8 @@ def get(url, cookies='', proxy=None, useragent='', headers=[],
             if err_counter >= HAMMER_MODE_ATTEMPTS:
                 raise pycurl.error(str(e))
 
-def post(url, data, cookies='', proxy=None, useragent='', headers=[]):
+def post(url, data, cookies='', proxy=None, useragent='', referer='',
+         headers=[]):
     """
     POST запрос
     data: dict
@@ -298,6 +307,7 @@ def post(url, data, cookies='', proxy=None, useragent='', headers=[]):
         try:
             result = __process_redirect(__request(url, request_type='post', 
                                                   cookies=cookies, 
+                                                  referer=referer, 
                                                   post_data=data,
                                                   useragent=useragent, 
                                                   headers=headers,
@@ -312,6 +322,3 @@ def post(url, data, cookies='', proxy=None, useragent='', headers=[]):
             err_counter += 1
             if err_counter >= HAMMER_MODE_ATTEMPTS:
                 raise pycurl.error(str(e))
-
-
-#TODO: возврат значений в неудавшихся запросах

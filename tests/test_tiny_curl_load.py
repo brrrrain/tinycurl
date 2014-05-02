@@ -10,19 +10,21 @@ import bottle
 import curlpretty
 import controllers
 
-#TODO: собрать в пакет, начать писать avito спамер
-
 class TestLoadPages(unittest.TestCase):
     def setUp(self):
+        print "setup"
         self.mock_curl = curlpretty.curlpretty(controllers)
         self.mock_curl.mock()
         tinycurl.TIMEOUT = 1
         tinycurl.HAMMER_MODE_ATTEMPTS = 3
-
-    def tearDown(self):
-        self.mock_curl.reset()
         tinycurl.HEADERS = []
         tinycurl.USERAGENT = ''
+
+    def tearDown(self):
+        print "teardown"
+        tinycurl.HEADERS = []
+        tinycurl.USERAGENT = ''
+        self.mock_curl.reset()
 
 
     def test_hammer_mode(self):
@@ -167,9 +169,9 @@ class TestLoadPages(unittest.TestCase):
                                headers=['Test-header: test'])['body']
         self.assertEqual('test', result)
 
-    def test_passed_header_with_redirect_post(self):
+    def test_passed_global_header_with_redirect_post(self):
         """Глобальное значение хедеров, но нас редиректит; POST запрос"""
-        tinycurl.HEADERS = ['Test-header: test']
+        tinycurl.HEADERS = ['Test-header: test', 'Fuck: fuck']
         result = tinycurl.post('http://ttttest.lc/redirect_to_header', 
                                data={'a': 'b'})['body']
         self.assertEqual('test', result)
@@ -232,3 +234,20 @@ class TestLoadPages(unittest.TestCase):
                                data={'a': 'b'})['body']
 
         self.assertEqual('test-useragent', result)
+
+    def test_referer_test_get(self):
+        tinycurl.HEADERS = []
+        """Передаём referer в get запросе"""
+        result = tinycurl.get('http://ttttest.lc/referer', 
+                              referer='http://test.com')['body']
+
+        self.assertEqual('http://test.com', result)
+
+    def test_referer_test_post(self):
+        tinycurl.HEADERS = []
+        """Передаём referer в post запросе"""
+        result = tinycurl.post('http://ttttest.lc/referer', 
+                               data={'a': 'b'},
+                               referer='http://test.com')['body']
+
+        self.assertEqual('http://test.com', result)

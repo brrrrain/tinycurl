@@ -71,5 +71,10 @@ def redirect_to_useragent():
 
 @bottle.route('/useragent')
 @bottle.post('/useragent')
-def header():
+def useragent():
     return bottle.request.get_header('User-agent', 'None')
+
+@bottle.route('/referer')
+@bottle.post('/referer')
+def referer():
+    return bottle.request.get_header('Referer', 'None')
