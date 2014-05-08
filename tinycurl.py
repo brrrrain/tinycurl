@@ -145,6 +145,15 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     c.setopt(pycurl.WRITEFUNCTION, body.write)
     c.setopt(pycurl.HEADERFUNCTION, got_headers.write)
 
+    """
+    If it is 1, libcurl will not use any functions that install signal 
+    handlers or any functions that cause signals to be sent to the 
+    process. This option is mainly here to allow multi-threaded unix 
+    applications to still set/use all timeout options etc, without risking 
+    getting signals
+    """
+    c.setopt(pycurl.NOSIGNAL, 1)
+
     #более приоритетный юзер-агент - это переданый в функцию
     #менее приоритетный - это юзер-агент установленный глобально
     if not useragent:
