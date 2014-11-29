@@ -19,7 +19,7 @@ HEADERS = []
 USERAGENT = ''
 
 def __headers_to_dict(headers, replace_duplicates=False):
-    """ 
+    """
     Получаем: ("Connection: Keep-Alive", )
     Отдаём: {"Connection": "Keep-Alive"}
     """
@@ -50,8 +50,8 @@ def __get_headers(data):
     """
     data = data.strip()
 
-    #Мы можем иметь несколько наборов заголовков т.к один ответ может 
-    #быть просто редиректом, поэтому возвращаем всегда последний набор 
+    #Мы можем иметь несколько наборов заголовков т.к один ответ может
+    #быть просто редиректом, поэтому возвращаем всегда последний набор
     #заголовков;
     #
     #УТОЧНЕНИЕ: описание актуально при использовании опции FOLLOWLOCATION;
@@ -77,12 +77,13 @@ def __query_to_dict(query):
     На входе: a=1&b=2
     На выходе словарь: {'a': 1, 'b': 2}
     """
+    query = query.replace('; ', '&')
     return dict(urlparse.parse_qsl(query))
 
 def __get_cookies(set_cookie_string, current_cookies=''):
     """
     На входе: заголовок Set-Cookie: a=1; domain=blabla.com; ....
-              уже используемые куки: b=2&c=3
+              уже используемые куки: b=2; c=3
 
     На выходе: a=1&b=2&c=3
     Существующие куки обновляют данные при наличие таковых в
@@ -111,16 +112,16 @@ def __get_cookies(set_cookie_string, current_cookies=''):
         except ValueError:
             continue
 
-    cookies.update(current_cookies)  
+    cookies.update(current_cookies)
 
-    return urllib.unquote(urllib.urlencode(cookies)) 
+    return urllib.unquote(urllib.urlencode(cookies)).replace('&', '; ')
 
-def __request(url, request_type, cookies='', post_data={}, proxy=None, 
-              headers=[], useragent='', referer='', redirect_count=0, 
+def __request(url, request_type, cookies='', post_data={}, proxy=None,
+              headers=[], useragent='', referer='', redirect_count=0,
               attempt=1):
     """
     Универсальная функция. Используется в функциях get & post
-    Возвращает: 
+    Возвращает:
         Словарь заголовков: dict
         Тело: string
         Cookies: string; query string: a=1&b=2
@@ -146,10 +147,10 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     c.setopt(pycurl.HEADERFUNCTION, got_headers.write)
 
     """
-    If it is 1, libcurl will not use any functions that install signal 
-    handlers or any functions that cause signals to be sent to the 
-    process. This option is mainly here to allow multi-threaded unix 
-    applications to still set/use all timeout options etc, without risking 
+    If it is 1, libcurl will not use any functions that install signal
+    handlers or any functions that cause signals to be sent to the
+    process. This option is mainly here to allow multi-threaded unix
+    applications to still set/use all timeout options etc, without risking
     getting signals
     """
     c.setopt(pycurl.NOSIGNAL, 1)
@@ -175,7 +176,7 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     c.setopt(pycurl.FAILONERROR, 1)
 
     #ВАЖНО: т.к. куки не сохраняем в файлах, а передаём строкой
-    #то FOLLOWLOCATION не будет использовать куки, присвоенные 
+    #то FOLLOWLOCATION не будет использовать куки, присвоенные
     #сразу до редиректа. Отказываемся от его использования
     #
     #c.setopt(pycurl.FOLLOWLOCATION, 1)
@@ -215,8 +216,8 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     except pycurl.error as err:
         """
         CURLE_HTTP_RETURNED_ERROR (22)
-        This is returned if CURLOPT_FAILONERROR is set TRUE and the HTTP 
-        server returns an error code that is >= 400. 
+        This is returned if CURLOPT_FAILONERROR is set TRUE and the HTTP
+        server returns an error code that is >= 400.
         """
         if err[0] == 22:
             raise WrongCode(c.getinfo(pycurl.RESPONSE_CODE))
@@ -233,7 +234,7 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     #словарь
     got_headers = __get_headers(got_headers.getvalue())
 
-    result = {'headers': got_headers, 
+    result = {'headers': got_headers,
               'body': body.getvalue(),
               'current_proxy': proxy,
               'useragent': useragent,
@@ -244,7 +245,7 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
               'response_code': c.getinfo(pycurl.RESPONSE_CODE),
               'current_url': c.getinfo(pycurl.EFFECTIVE_URL),
               'redirect_url': c.getinfo(pycurl.REDIRECT_URL),
-              'redirect_count': redirect_count} 
+              'redirect_count': redirect_count}
     c.close()
     del c
 
@@ -259,11 +260,11 @@ def __process_redirect(result):
     """
     if result['redirect_url']:
         result['redirect_count'] += 1
-        result = get(result['redirect_url'], result['cookies'], 
-                     redirect_count=result['redirect_count'], 
+        result = get(result['redirect_url'], result['cookies'],
+                     redirect_count=result['redirect_count'],
                      proxy=result['current_proxy'],
                      referer=result['referer'],
-                     useragent=result['useragent'], 
+                     useragent=result['useragent'],
                      headers=result['sent_headers'])
 
     return result
@@ -283,8 +284,8 @@ def get(url, cookies='', proxy=None, useragent='', referer='',
     while True:
 
         try:
-            result = __process_redirect(__request(url, request_type='get', 
-                                                  cookies=cookies, 
+            result = __process_redirect(__request(url, request_type='get',
+                                                  cookies=cookies,
                                                   proxy=proxy,
                                                   referer=referer,
                                                   useragent=useragent,
@@ -314,11 +315,11 @@ def post(url, data, cookies='', proxy=None, useragent='', referer='',
     #Бесконечный цикл для hammer mode
     while True:
         try:
-            result = __process_redirect(__request(url, request_type='post', 
-                                                  cookies=cookies, 
-                                                  referer=referer, 
+            result = __process_redirect(__request(url, request_type='post',
+                                                  cookies=cookies,
+                                                  referer=referer,
                                                   post_data=data,
-                                                  useragent=useragent, 
+                                                  useragent=useragent,
                                                   headers=headers,
                                                   proxy=proxy))
             return result
