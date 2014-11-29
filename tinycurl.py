@@ -184,6 +184,10 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     c.setopt(pycurl.VERBOSE, 1)
     c.setopt(pycurl.DEBUGFUNCTION, __logging)
 
+    # не проверяем SSL сертификат. Запросы становястя уязвимы к атаке MITM
+    c.setopt(pycurl.CURLOPT_SSL_VERIFYHOST, 0)
+    c.setopt(pycurl.CURLOPT_SSL_VERIFYPEER, 0)
+
     if request_type.lower() == 'post' and post_data:
         c.setopt(pycurl.POST, 1)
         c.setopt(pycurl.POSTFIELDS, urllib.urlencode(post_data))
