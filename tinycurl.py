@@ -1,15 +1,10 @@
-#encoding: utf-8
-import sys
-import time
+# encoding: utf-8
 import logging
 import urlparse
 import urllib
 import pycurl
 from StringIO import StringIO
-from pprint import pprint
 from tinycurl_exceptions import DeadProxy, WrongCode, InfiniteRedirection
-
-#logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %H:%M:%S', level=logging.DEBUG)
 
 MAX_REDIRECTS = 2
 TIMEOUT = 1
@@ -17,6 +12,7 @@ HAMMER_MODE_ATTEMPTS = 3
 PROXY_TYPE = 'socks5'
 HEADERS = []
 USERAGENT = ''
+
 
 def __headers_to_dict(headers, replace_duplicates=False):
     """
@@ -29,7 +25,7 @@ def __headers_to_dict(headers, replace_duplicates=False):
     for item in headers:
         try:
             key, value = item.split(': ')
-        except ValueError as e:
+        except ValueError:
             continue
 
         if key in result.keys() and replace_duplicates is False:
@@ -38,6 +34,7 @@ def __headers_to_dict(headers, replace_duplicates=False):
             result[key] = value
 
     return result
+
 
 def __get_headers(data):
     """
@@ -50,12 +47,12 @@ def __get_headers(data):
     """
     data = data.strip()
 
-    #Мы можем иметь несколько наборов заголовков т.к один ответ может
-    #быть просто редиректом, поэтому возвращаем всегда последний набор
-    #заголовков;
+    # Мы можем иметь несколько наборов заголовков т.к один ответ может
+    # быть просто редиректом, поэтому возвращаем всегда последний набор
+    # заголовков;
     #
-    #УТОЧНЕНИЕ: описание актуально при использовании опции FOLLOWLOCATION;
-    #При отключении данной опции, набор заголовков всегда один
+    # УТОЧНЕНИЕ: описание актуально при использовании опции FOLLOWLOCATION;
+    # При отключении данной опции, набор заголовков всегда один
     headers_list = data.split('\r\n\r\n', 1)[-1]
     headers_list = headers_list.split('\r\n')
     headers_list = [item for item in headers_list if item]
@@ -67,10 +64,12 @@ def __get_headers(data):
 
     return headers_dict
 
+
 def __logging(debug_type, debug_msg):
-    #debug_type = 3 — это тело ответа
+    # debug_type = 3 — это тело ответа
     if debug_type != 3:
         logging.debug("debug(%d): %s" % (debug_type, debug_msg.strip()))
+
 
 def __query_to_dict(query):
     """
@@ -79,6 +78,7 @@ def __query_to_dict(query):
     """
     query = query.replace('; ', '&')
     return dict(urlparse.parse_qsl(query))
+
 
 def __get_cookies(set_cookie_string, current_cookies=''):
     """
@@ -98,8 +98,8 @@ def __get_cookies(set_cookie_string, current_cookies=''):
             item = item.split(';')[0]
             name, val = item.split('=', 1)
 
-            #если значение куки пустое или равно deleted
-            #то удаляем куку
+            # если значение куки пустое или равно deleted
+            # то удаляем куку
             if val == 'deleted' or not val:
                 try:
                     del current_cookies[name]
@@ -116,6 +116,7 @@ def __get_cookies(set_cookie_string, current_cookies=''):
 
     return urllib.unquote(urllib.urlencode(cookies)).replace('&', '; ')
 
+
 def __request(url, request_type, cookies='', post_data={}, proxy=None,
               headers=[], useragent='', referer='', redirect_count=0,
               attempt=1):
@@ -131,7 +132,7 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
         Redirect count: integer
     """
 
-    #сливаем переданые в функции и глобальные заголовки
+    # сливаем переданые в функции и глобальные заголовки
     all_headers = HEADERS + headers
     all_headers = __headers_to_dict(all_headers, replace_duplicates=True)
     all_headers = ["%s: %s" % (k, v) for k, v in all_headers.items()]
@@ -155,8 +156,8 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     """
     c.setopt(pycurl.NOSIGNAL, 1)
 
-    #более приоритетный юзер-агент - это переданый в функцию
-    #менее приоритетный - это юзер-агент установленный глобально
+    # более приоритетный юзер-агент - это переданый в функцию
+    # менее приоритетный - это юзер-агент установленный глобально
     if not useragent:
         if USERAGENT:
             useragent = USERAGENT
@@ -167,34 +168,34 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     if all_headers:
         c.setopt(pycurl.HTTPHEADER, all_headers)
 
-    #Установка referer'a
+    # Установка referer'a
     if referer:
         c.setopt(pycurl.REFERER, referer)
 
 
-    #Если код ответа >= 400, то вызываем ошибку
+    # Если код ответа >= 400, то вызываем ошибку
     c.setopt(pycurl.FAILONERROR, 1)
 
-    #ВАЖНО: т.к. куки не сохраняем в файлах, а передаём строкой
-    #то FOLLOWLOCATION не будет использовать куки, присвоенные
-    #сразу до редиректа. Отказываемся от его использования
+    # ВАЖНО: т.к. куки не сохраняем в файлах, а передаём строкой
+    # то FOLLOWLOCATION не будет использовать куки, присвоенные
+    # сразу до редиректа. Отказываемся от его использования
     #
-    #c.setopt(pycurl.FOLLOWLOCATION, 1)
+    # c.setopt(pycurl.FOLLOWLOCATION, 1)
     c.setopt(pycurl.COOKIE, cookies)
     c.setopt(pycurl.VERBOSE, 1)
     c.setopt(pycurl.DEBUGFUNCTION, __logging)
 
     # не проверяем SSL сертификат. Запросы становястя уязвимы к атаке MITM
-    c.setopt(pycurl.CURLOPT_SSL_VERIFYHOST, 0)
-    c.setopt(pycurl.CURLOPT_SSL_VERIFYPEER, 0)
+    c.setopt(pycurl.SSL_VERIFYHOST, 0)
+    c.setopt(pycurl.SSL_VERIFYPEER, 0)
 
     if request_type.lower() == 'post' and post_data:
         c.setopt(pycurl.POST, 1)
         c.setopt(pycurl.POSTFIELDS, urllib.urlencode(post_data))
 
-    #Если передан прокси, то работаем через него
+    # Если передан прокси, то работаем через него
     if proxy:
-        #CURL proxytype
+        # CURL proxytype
         if PROXY_TYPE == 'socks5':
             proxy_type = pycurl.PROXYTYPE_SOCKS5
         elif PROXY_TYPE == 'socks4':
@@ -202,11 +203,11 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
         elif PROXY_TYPE == 'http':
             proxy_type = pycurl.PROXYTYPE_HTTP
 
-        #если не можем отделить ip и порт, то возвращаем ошибку
+        # если не можем отделить ip и порт, то возвращаем ошибку
         try:
             proxy_ip, port = proxy.split(':')
             port = int(port)
-        except ValueError, e:
+        except ValueError:
             logging.error("Возможно, неверный формат прокси: %s", str(proxy))
             raise DeadProxy(proxy_ip, port)
 
@@ -214,7 +215,7 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
         c.setopt(pycurl.PROXYPORT, port)
         c.setopt(pycurl.PROXYTYPE, proxy_type)
 
-    #Обработка исключений при загрузке страницы
+    # Обработка исключений при загрузке страницы
     try:
         c.perform()
     except pycurl.error as err:
@@ -235,7 +236,7 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
         else:
             raise pycurl.error(str(err))
 
-    #словарь
+    # словарь
     got_headers = __get_headers(got_headers.getvalue())
 
     result = {'headers': got_headers,
@@ -255,6 +256,7 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
 
     return result
 
+
 def __process_redirect(result):
     """
     Если в результате запроса присутствует redirect_url
@@ -273,6 +275,7 @@ def __process_redirect(result):
 
     return result
 
+
 def get(url, cookies='', proxy=None, useragent='', referer='',
         headers=[], redirect_count=0):
     """
@@ -284,7 +287,7 @@ def get(url, cookies='', proxy=None, useragent='', referer='',
     if redirect_count >= MAX_REDIRECTS:
         raise InfiniteRedirection(url)
 
-    #Бесконечный цикл для hammer mode
+    # Бесконечный цикл для hammer mode
     while True:
 
         try:
@@ -307,6 +310,7 @@ def get(url, cookies='', proxy=None, useragent='', referer='',
             if err_counter >= HAMMER_MODE_ATTEMPTS:
                 raise pycurl.error(str(e))
 
+
 def post(url, data, cookies='', proxy=None, useragent='', referer='',
          headers=[]):
     """
@@ -316,7 +320,7 @@ def post(url, data, cookies='', proxy=None, useragent='', referer='',
     """
     err_counter = 0
 
-    #Бесконечный цикл для hammer mode
+    # Бесконечный цикл для hammer mode
     while True:
         try:
             result = __process_redirect(__request(url, request_type='post',
