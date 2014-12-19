@@ -119,7 +119,7 @@ def __get_cookies(set_cookie_string, current_cookies=''):
 
 def __request(url, request_type, cookies='', post_data={}, proxy=None,
               headers=[], useragent='', referer='', redirect_count=0,
-              attempt=1):
+              attempt=1, headers_only=False):
     """
     Универсальная функция. Используется в функциях get & post
     Возвращает:
@@ -142,9 +142,13 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     got_headers = StringIO()
     body = StringIO()
 
+    if headers_only:
+        c.setopt(pycurl.NOBODY, 1)
+    else:
+        c.setopt(pycurl.WRITEFUNCTION, body.write)
+
     c.setopt(pycurl.URL, url)
     c.setopt(pycurl.TIMEOUT, TIMEOUT)
-    c.setopt(pycurl.WRITEFUNCTION, body.write)
     c.setopt(pycurl.HEADERFUNCTION, got_headers.write)
 
     """
@@ -250,7 +254,8 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
               'response_code': c.getinfo(pycurl.RESPONSE_CODE),
               'current_url': c.getinfo(pycurl.EFFECTIVE_URL),
               'redirect_url': c.getinfo(pycurl.REDIRECT_URL),
-              'redirect_count': redirect_count}
+              'redirect_count': redirect_count,
+              'headers_only': headers_only}
     c.close()
     del c
 
@@ -271,13 +276,14 @@ def __process_redirect(result):
                      proxy=result['current_proxy'],
                      referer=result['referer'],
                      useragent=result['useragent'],
-                     headers=result['sent_headers'])
+                     headers=result['sent_headers'],
+                     headers_only=result['headers_only'])
 
     return result
 
 
 def get(url, cookies='', proxy=None, useragent='', referer='',
-        headers=[], redirect_count=0):
+        headers=[], redirect_count=0, headers_only=False):
     """
     GET запрос
     Возвращаемые значения: см. функцию __request
@@ -297,7 +303,8 @@ def get(url, cookies='', proxy=None, useragent='', referer='',
                                                   referer=referer,
                                                   useragent=useragent,
                                                   headers=headers,
-                                                  redirect_count=redirect_count))
+                                                  redirect_count=redirect_count,
+                                                  headers_only=headers_only))
             return result
 
         except DeadProxy as e:
@@ -312,7 +319,7 @@ def get(url, cookies='', proxy=None, useragent='', referer='',
 
 
 def post(url, data, cookies='', proxy=None, useragent='', referer='',
-         headers=[]):
+         headers=[], headers_only=False):
     """
     POST запрос
     data: dict
@@ -329,7 +336,8 @@ def post(url, data, cookies='', proxy=None, useragent='', referer='',
                                                   post_data=data,
                                                   useragent=useragent,
                                                   headers=headers,
-                                                  proxy=proxy))
+                                                  proxy=proxy,
+                                                  headers_only=headers_only))
             return result
         except DeadProxy as e:
             err_counter += 1
