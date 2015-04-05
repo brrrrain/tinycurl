@@ -194,8 +194,7 @@ def __request(url, request_type, cookies='', post_data={}, proxy=None,
     c.setopt(pycurl.SSL_VERIFYPEER, 0)
 
     if request_type.lower() == 'post' and post_data:
-        c.setopt(pycurl.POST, 1)
-        c.setopt(pycurl.POSTFIELDS, urllib.urlencode(post_data))
+        c.setopt(pycurl.HTTPPOST, post_data.items())
 
     # Если передан прокси, то работаем через него
     if proxy:

@@ -2,7 +2,7 @@
 from distutils.core import setup
 
 setup(name='tinycurl',
-      version='0.2.4',
+      version='0.2.5',
       description='Simple cURL wrapper',
       author='Krab',
       author_email='krabbch@gmail.com',
